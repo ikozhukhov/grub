@@ -41,7 +41,7 @@ grub_ata_strncpy (grub_uint16_t *dst16, grub_uint16_t *src16, grub_size_t len)
 static void
 grub_ata_dumpinfo (struct grub_ata *dev, grub_uint16_t *info)
 {
-  grub_uint16_t text[21];
+  grub_uint16_t text[41];
 
   /* The device information was read, dump it for debugging.  */
   grub_ata_strncpy (text, info + 10, 20);
