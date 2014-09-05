@@ -344,6 +344,7 @@ AC_CHECK_PROG(HAVE_CXX, $CXX, yes, no)
 
 AC_GNU_SOURCE
 AM_GNU_GETTEXT([external])
+AM_GNU_GETTEXT_VERSION([0.16.1])
 AC_SYS_LARGEFILE
 
 # Identify characteristics of the host architecture.
@@ -756,7 +757,7 @@ fi
 if test x"$efiemu_excuse" = x ; then
   AC_CACHE_CHECK([for efiemu64 linking format], [grub_cv_target_cc_efiemu64_link_format], [
     grub_cv_target_cc_efiemu64_link_format=unknown
-    for format in -melf_x86_64 -melf_x86_64_fbsd -melf_x86_64_obsd -melf_x86_64_haiku -arch,x86_64; do
+    for format in -melf_x86_64 -melf_x86_64_fbsd -melf_x86_64_obsd -melf_x86_64_haiku -arch,x86_64 -m64; do
       CFLAGS="-m64 -nostdlib -O2 -mcmodel=large -mno-red-zone"
       LDFLAGS="-m64 -Wl,$format -nostdlib -static"
       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
@@ -814,7 +815,7 @@ if test x"$platform" = xemu ; then
 elif test x"$target_cpu" = xi386 || test x"$target_cpu" = xx86_64; then
   AC_CACHE_CHECK([for target linking format], [grub_cv_target_cc_link_format], [
     grub_cv_target_cc_link_format=unknown
-    for format in -melf_${target_cpu} -melf_${target_cpu}_fbsd -melf_${target_cpu}_obsd -melf_${target_cpu}_haiku -mi386pe -mi386pep -arch,${target_cpu}; do
+    for format in -melf_${target_cpu} -melf_${target_cpu}_fbsd -melf_${target_cpu}_obsd -melf_${target_cpu}_haiku -mi386pe -mi386pep -arch,${target_cpu} -m32 -m64; do
       if test x${target_cpu} != xi386 && test x$format = x-mi386pe; then
         continue
       fi
