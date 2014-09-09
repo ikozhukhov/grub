@@ -1,7 +1,7 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
  *  Copyright (C) 1999,2000,2001,2002,2003,2004,2009  Free Software Foundation, Inc.
- *  Copyright 2010 Sun Microsystems, Inc.
+ *  Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
  *
  *  GRUB is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,6 +67,8 @@
 	BF64_SET(x, low, len, ((val) >> (shift)) - (bias))
 
 #define	SPA_MINBLOCKSHIFT	9
+#define	SPA_MAXBLOCKSHIFT	20
+#define	SPA_128KBLOCKSHIFT	17
 #define	SPA_MINBLOCKSIZE	(1ULL << SPA_MINBLOCKSHIFT)
 
 /*
@@ -126,7 +128,7 @@ typedef struct zio_cksum {
  *	+-------+-------+-------+-------+-------+-------+-------+-------+
  * 5	|G|			 offset3				|
  *	+-------+-------+-------+-------+-------+-------+-------+-------+
- * 6	|BDX|lvl| type	| cksum | comp	|     PSIZE	|     LSIZE	|
+ * 6	|BDX|lvl| type	| cksum |E| comp|     PSIZE	|     LSIZE	|
  *	+-------+-------+-------+-------+-------+-------+-------+-------+
  * 7	|			padding					|
  *	+-------+-------+-------+-------+-------+-------+-------+-------+
@@ -160,7 +162,8 @@ typedef struct zio_cksum {
  * G		gang block indicator
  * B		byteorder (endianness)
  * D		dedup
- * X		unused
+ * X		encryption (on version 30, which is not supported in openzfs)
+ * E		blkptr_t contains embedded data
  * lvl		level of indirection
  * type		DMU object type
  * phys birth	txg of block allocation; zero if same as logical birth txg
@@ -198,15 +201,28 @@ typedef struct blkptr {
 #define	DVA_GET_GANG(dva)	BF64_GET((dva)->dva_word[1], 63, 1)
 #define	DVA_SET_GANG(dva, x)	BF64_SET((dva)->dva_word[1], 63, 1, x)
 
-#define	BP_GET_LSIZE(bp)	\
-	BF64_GET_SB((bp)->blk_prop, 0, 16, SPA_MINBLOCKSHIFT, 1)
+#define	BP_GET_LSIZE(bp, e)	\
+	(BP_IS_HOLE(bp, e) ? 0 : \
+	BF64_GET_SB((grub_zfs_to_cpu64((bp)->blk_prop, e)), 0, SPA_LSIZEBITS, \
+			SPA_MINBLOCKSHIFT, 1))
 #define	BP_SET_LSIZE(bp, x)	\
-	BF64_SET_SB((bp)->blk_prop, 0, 16, SPA_MINBLOCKSHIFT, 1, x)
+	BF64_SET_SB((bp)->blk_prop, 0, SPA_LSIZEBITS, SPA_MINBLOCKSHIFT, 1, x)
 
-#define	BP_GET_COMPRESS(bp)		BF64_GET((bp)->blk_prop, 32, 8)
-#define	BP_SET_COMPRESS(bp, x)		BF64_SET((bp)->blk_prop, 32, 8, x)
+#define	BP_GET_PSIZE(bp, e)	\
+	BF64_GET_SB((grub_zfs_to_cpu64((bp)->blk_prop, e)), 16, SPA_PSIZEBITS, \
+			SPA_MINBLOCKSHIFT, 1)
+#define	BP_SET_PSIZE(bp, x)	\
+	BF64_SET_SB((bp)->blk_prop, 16, SPA_PSIZEBITS, SPA_MINBLOCKSHIFT, 1, x)
 
-#define	BP_GET_CHECKSUM(bp)		BF64_GET((bp)->blk_prop, 40, 8)
+#define	BP_GET_COMPRESS(bp, e)	\
+	BF64_GET(grub_zfs_to_cpu64((bp)->blk_prop, e), 32, 7)
+#define	BP_SET_COMPRESS(bp, x)		BF64_SET((bp)->blk_prop, 32, 7, x)
+
+#define	BP_IS_EMBEDDED(bp, e)	\
+	BF64_GET(grub_zfs_to_cpu64((bp)->blk_prop, e), 39, 1)
+
+#define	BP_GET_CHECKSUM(bp, e)	\
+	BF64_GET(grub_zfs_to_cpu64((bp)->blk_prop, e), 40, 8)
 #define	BP_SET_CHECKSUM(bp, x)		BF64_SET((bp)->blk_prop, 40, 8, x)
 
 #define	BP_GET_TYPE(bp)			BF64_GET((bp)->blk_prop, 48, 8)
@@ -278,8 +294,14 @@ typedef struct blkptr {
 }
 
 #define	BP_IDENTITY(bp)		(&(bp)->blk_dva[0])
-#define	BP_IS_GANG(bp)		DVA_GET_GANG(BP_IDENTITY(bp))
-#define	BP_IS_HOLE(bp)		((bp)->blk_birth == 0)
+#define	BP_IS_GANG(bp, e)		\
+	(BP_IS_EMBEDDED(bp, e) ? B_FALSE : DVA_GET_GANG(BP_IDENTITY(bp)))
+#define	DVA_IS_EMPTY(dva)	\
+	((dva)->dva_word[0] == 0ULL && \
+	(dva)->dva_word[1] == 0ULL)
+
+#define	BP_IS_HOLE(bp, e)		\
+	(!BP_IS_EMBEDDED(bp, e) && DVA_IS_EMPTY(BP_IDENTITY(bp)))
 
 /* BP_IS_RAIDZ(bp) assumes no block compression */
 #define	BP_IS_RAIDZ(bp)		(DVA_GET_ASIZE(&(bp)->blk_dva[0]) > \
@@ -301,6 +323,22 @@ typedef struct blkptr {
 	(bp)->blk_fill = 0;			\
 	ZIO_SET_CHECKSUM(&(bp)->blk_cksum, 0, 0, 0, 0);	\
 }
+
+#define	BPE_GET_ETYPE(bp, e)	BP_GET_CHECKSUM(bp, e)
+#define	BPE_GET_LSIZE(bp, e)	\
+	BF64_GET_SB((grub_zfs_to_cpu64 ((bp)->blk_prop, e)), 0, 25, 0, 1)
+#define	BPE_GET_PSIZE(bp, e)	\
+	BF64_GET_SB((grub_zfs_to_cpu64 ((bp)->blk_prop, e)), 25, 7, 0, 1)
+
+typedef enum bp_embedded_type {
+	BP_EMBEDDED_TYPE_DATA,
+	NUM_BP_EMBEDDED_TYPES
+} bp_embedded_type_t;
+
+#define	BPE_NUM_WORDS	14
+#define	BPE_PAYLOAD_SIZE (BPE_NUM_WORDS * sizeof (grub_uint64_t))
+#define	BPE_IS_PAYLOADWORD(bp, wp) \
+	((wp) != &(bp)->blk_prop && (wp) != &(bp)->blk_birth)
 
 #define	BP_SPRINTF_LEN	320
 

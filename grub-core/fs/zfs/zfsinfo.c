@@ -195,10 +195,16 @@ print_vdev_info (char *nvlist, int tab)
   return GRUB_ERR_NONE;
 }
 
-static grub_err_t
-get_bootpath (char *nvlist, char **bootpath, char **devid)
+#ifndef ZVBOOT
+static
+#endif /* ZVBOOT */
+grub_err_t
+get_bootpath (char *nvlist, grub_uint64_t devguid, char **bootpath,
+    char **devid)
 {
   char *type = 0;
+  grub_uint64_t curguid;
+  int found;
 
   type = grub_zfs_nvlist_lookup_string (nvlist, ZPOOL_CONFIG_TYPE);
 
@@ -207,17 +213,21 @@ get_bootpath (char *nvlist, char **bootpath, char **devid)
 
   if (grub_strcmp (type, VDEV_TYPE_DISK) == 0)
     {
-      *bootpath = grub_zfs_nvlist_lookup_string (nvlist,
-						 ZPOOL_CONFIG_PHYS_PATH);
-      *devid = grub_zfs_nvlist_lookup_string (nvlist, ZPOOL_CONFIG_DEVID);
-      if (!*bootpath || !*devid)
+      found = grub_zfs_nvlist_lookup_uint64 (nvlist, ZPOOL_CONFIG_GUID,
+					     &curguid);
+
+      if (found && curguid != devguid)
 	{
-	  grub_free (*bootpath);
-	  grub_free (*devid);
 	  *bootpath = 0;
 	  *devid = 0;
+	  return GRUB_ERR_NONE;
 	}
-      return GRUB_ERR_NONE;
+
+	*bootpath = grub_zfs_nvlist_lookup_string (nvlist,
+						  ZPOOL_CONFIG_PHYS_PATH);
+	*devid = grub_zfs_nvlist_lookup_string (nvlist, ZPOOL_CONFIG_DEVID);
+
+	return GRUB_ERR_NONE;
     }
 
   if (grub_strcmp (type, VDEV_TYPE_MIRROR) == 0)
@@ -235,11 +245,18 @@ get_bootpath (char *nvlist, char **bootpath, char **devid)
 						       ZPOOL_CONFIG_CHILDREN,
 						       i);
 
-	  get_bootpath (child, bootpath, devid);
+	  if (! child)
+	    {
+	      grub_printf_ (N_("Unable to lookup child vdevs for pool: %s\n"),
+				grub_errmsg);
+	      return grub_errno;
+	    }
+
+	  get_bootpath (child, devguid, bootpath, devid);
 
 	  grub_free (child);
 
-	  if (*bootpath && *devid)
+	  if (*bootpath || *devid)
 	    return GRUB_ERR_NONE;
 	}
     }
@@ -276,7 +293,7 @@ grub_cmd_zfsinfo (grub_command_t cmd __attribute__ ((unused)), int argc,
   int found;
 
   if (argc < 1)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("one argument expected"));
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("device name required"));
 
   if (args[0][0] == '(' && args[0][grub_strlen (args[0]) - 1] == ')')
     {
@@ -350,12 +367,13 @@ grub_cmd_zfs_bootfs (grub_command_t cmd __attribute__ ((unused)), int argc,
   char *nv = 0;
   char *bootpath = 0, *devid = 0;
   char *fsname;
-  char *bootfs;
-  char *poolname;
-  grub_uint64_t mdnobj;
+  char *bootfs = NULL;
+  char *poolname = NULL;
+  grub_uint64_t mdnobj, devguid;
+  int found;
 
   if (argc < 1)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("one argument expected"));
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filesystem name required"));
 
   devname = grub_file_get_device_name (args[0]);
   if (grub_errno)
@@ -380,25 +398,35 @@ grub_cmd_zfs_bootfs (grub_command_t cmd __attribute__ ((unused)), int argc,
   grub_device_close (dev);
 
   if (err)
-    return err;
+    {
+      grub_free (nvlist);
+      return err;
+    }
+
+  found = grub_zfs_nvlist_lookup_uint64 (nvlist, ZPOOL_CONFIG_GUID, &devguid);
+
+  if (!found)
+    {
+      if (!grub_errno)
+        grub_error(GRUB_ERR_BAD_FS, N_("No virtual device GUID found"));
+      grub_free (nvlist);
+      return grub_errno;
+    }
 
   poolname = grub_zfs_nvlist_lookup_string (nvlist, ZPOOL_CONFIG_POOL_NAME);
   if (!poolname)
     {
       if (!grub_errno)
 	grub_error (GRUB_ERR_BAD_FS, "No poolname found");
+      grub_free (nvlist);
       return grub_errno;
     }
 
   nv = grub_zfs_nvlist_lookup_nvlist (nvlist, ZPOOL_CONFIG_VDEV_TREE);
 
-  if (nv)
-    get_bootpath (nv, &bootpath, &devid);
-
-  grub_free (nv);
-  grub_free (nvlist);
-
-  bootfs = grub_xasprintf ("zfs-bootfs=%s/%llu%s%s%s%s%s%s",
+  if (nv && (get_bootpath (nv, devguid, &bootpath, &devid) == GRUB_ERR_NONE))
+    {
+       bootfs = grub_xasprintf ("zfs-bootfs=%s/%llu%s%s%s%s%s%s",
 			   poolname, (unsigned long long) mdnobj,
 			   bootpath ? ",bootpath=\"" : "",
 			   bootpath ? : "",
@@ -406,6 +434,11 @@ grub_cmd_zfs_bootfs (grub_command_t cmd __attribute__ ((unused)), int argc,
 			   devid ? ",diskdevid=\"" : "",
 			   devid ? : "",
 			   devid ? "\"" : "");
+     }
+  grub_free (nv);
+  grub_free (nvlist);
+  grub_free (poolname);
+
   if (!bootfs)
     return grub_errno;
   if (argc >= 2)
@@ -414,28 +447,159 @@ grub_cmd_zfs_bootfs (grub_command_t cmd __attribute__ ((unused)), int argc,
     grub_printf ("%s\n", bootfs);
 
   grub_free (bootfs);
-  grub_free (poolname);
   grub_free (bootpath);
   grub_free (devid);
 
   return GRUB_ERR_NONE;
 }
 
-
-static grub_command_t cmd_info, cmd_bootfs;
-
-GRUB_MOD_INIT (zfsinfo)
+static grub_err_t
+grub_cmd_zfs_defaultbootfs (grub_command_t cmd __attribute__ ((unused)),
+	int argc, char **args)
 {
-  cmd_info = grub_register_command ("zfsinfo", grub_cmd_zfsinfo,
-				    N_("DEVICE"),
-				    N_("Print ZFS info about DEVICE."));
+  grub_device_t dev;
+  char *devname = 0;
+  grub_err_t err;
+  char *nvlist = 0;
+  char *nv = 0;
+  char *bootpath = 0, *devid = 0;
+  char *bootfs = 0;
+  char *poolname;
+  char *bootfsname = 0;
+  grub_uint64_t mdnobj, devguid;
+  int found;
+
+  if (argc < 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("variable name required"));
+
+  if (argc >= 2)
+    {
+      /* args[0] is the DEVICE name */
+      if (args[0][0] == '(' && args[0][grub_strlen (args[0]) - 1] == ')')
+        {
+          devname = grub_strdup (args[0] + 1);
+          if (devname)
+	    devname[grub_strlen (devname) - 1] = 0;
+        }
+      else
+        devname = grub_strdup (args[0]);
+    }
+  else		/* args[0] is the variable, we'll use root device */
+      devname = grub_strdup(grub_env_get("root"));
+
+  if (grub_errno)
+    {
+      grub_free(devname);
+      return grub_errno;
+    }
+
+  dev = grub_device_open (devname);
+  grub_free (devname);
+  if (!dev)
+    return grub_errno;
+
+  err = grub_zfs_fetch_nvlist (dev, &nvlist);
+  if (!err)
+    err = grub_zfs_defaultbootfsobj (dev, &mdnobj);
+
+  if (err)
+    {
+      grub_device_close (dev);
+      grub_free (nvlist);
+      return err;
+    }
+
+  err = grub_zfs_defaultbootfsname (dev, &bootfsname);
+
+  grub_device_close (dev);
+
+  if (err)
+    {
+      grub_free (nvlist);
+      return err;
+    }
+
+  if (argc >= 3)
+    {
+      found = grub_zfs_nvlist_lookup_uint64 (nvlist, ZPOOL_CONFIG_GUID,
+					    &devguid);
+      if (!found)
+	{
+	  if (!grub_errno)
+	    grub_error(GRUB_ERR_BAD_FS, N_("No virtual device GUID found"));
+	  grub_free (nvlist);
+	  grub_free (bootfsname);
+	  return grub_errno;
+	}
+
+      poolname = grub_zfs_nvlist_lookup_string (nvlist, ZPOOL_CONFIG_POOL_NAME);
+      if (!poolname)
+	{
+	  if (!grub_errno)
+	    grub_error (GRUB_ERR_BAD_FS, N_("No poolname found"));
+	  grub_free (nvlist);
+	  grub_free (bootfsname);
+	  return grub_errno;
+	}
+
+      nv = grub_zfs_nvlist_lookup_nvlist (nvlist, ZPOOL_CONFIG_VDEV_TREE);
+
+      if (nv && (get_bootpath (nv, devguid, &bootpath, &devid) == GRUB_ERR_NONE))
+        {
+          bootfs = grub_xasprintf ("zfs-bootfs=%s/%llu%s%s%s%s%s%s",
+				  poolname, (unsigned long long) mdnobj,
+				  bootpath ? ",bootpath=\"" : "",
+				  bootpath ? : "",
+				  bootpath ? "\"" : "",
+				  devid ? ",diskdevid=\"" : "",
+				  devid ? : "",
+				  devid ? "\"" : "");
+	  grub_free (nv);
+	  grub_free (poolname);  
+	  grub_free (bootpath);
+	  grub_free (devid);
+	  if (!bootfs)
+	    {
+	      grub_free (nvlist);
+	      return grub_errno;
+	    }
+	  grub_dprintf ("zfs", "bootfs=%s\n", bootfs);
+	  grub_env_set (args[2], bootfs);
+	}
+    }
+
+  grub_dprintf ("zfs", "bootfsname=%s\n", bootfsname);
+
+  if (argc >= 2)
+    grub_env_set (args[1], bootfsname);
+  else
+    grub_env_set (args[0], bootfsname);
+
+  grub_free (nvlist);
+  grub_free (bootfs);
+  grub_free (bootfsname);
+
+  return GRUB_ERR_NONE;
+}
+
+static grub_command_t cmd_info, cmd_bootfs, cmd_defaultbootfs;
+
+GRUB_MOD_INIT(zfsinfo)
+{
+  cmd_info = grub_register_command("zfsinfo", grub_cmd_zfsinfo,
+	N_("DEVICE"), N_("Print ZFS info about DEVICE."));
   cmd_bootfs = grub_register_command ("zfs-bootfs", grub_cmd_zfs_bootfs,
-				      N_("FILESYSTEM [VARIABLE]"),
-				      N_("Print ZFS-BOOTFSOBJ or store it into VARIABLE"));
+	N_("FILESYSTEM [VARIABLE]"),
+	N_("Print ZFS-BOOTFSOBJ or store it into VARIABLE"));
+  cmd_defaultbootfs = grub_register_command ("zfs-defaultbootfs",
+	grub_cmd_zfs_defaultbootfs,
+	N_("VARIABLE or zfs-defaultbootfs DEVICE VARIABLE-A or zfs-defaultbootfs DEVICE VARIABLE-A VARIABLE-B"),
+	N_("Set default bootfs name of root device or given DEVICE to VARIABLE-A or set default bootfsname to VARIABLE-A and ZFS-BOOTFSOBJ to VARIABLE-B"));
 }
 
 GRUB_MOD_FINI (zfsinfo)
 {
   grub_unregister_command (cmd_info);
   grub_unregister_command (cmd_bootfs);
+  grub_unregister_command (cmd_defaultbootfs);
 }

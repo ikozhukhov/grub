@@ -169,8 +169,8 @@ command-line or ESC to discard edits and return to the GRUB menu."),
 
       msg_translated = grub_xasprintf (_("Use the %C and %C keys to select which "
 					 "entry is highlighted."),
-				       GRUB_UNICODE_UPARROW,
-				       GRUB_UNICODE_DOWNARROW);
+				       (wint_t)GRUB_UNICODE_UPARROW,
+				       (wint_t)GRUB_UNICODE_DOWNARROW);
       if (!msg_translated)
 	return 0;
       ret += grub_print_message_indented_real (msg_translated, STANDARD_MARGIN,

@@ -485,8 +485,13 @@ if test "x$target_alias" != x && test "x$host_alias" != "x$target_alias"; then
   AC_CHECK_TOOLS(TARGET_CC, [gcc egcs cc],
                  [AC_MSG_ERROR([none of gcc, egcs and cc is found. set TARGET_CC manually.])])
   AC_CHECK_TOOL(TARGET_OBJCOPY, objcopy)
+if test "$host_kernel" == solaris -o "$host_kernel" == illumos; then
+  AC_CHECK_TOOL(TARGET_STRIP, gstrip)
+  AC_CHECK_TOOL(TARGET_NM, gnm)
+else
   AC_CHECK_TOOL(TARGET_STRIP, strip)
   AC_CHECK_TOOL(TARGET_NM, nm)
+fi
   AC_CHECK_TOOL(TARGET_RANLIB, ranlib)
 
   ac_tool_prefix="$tmp_ac_tool_prefix"
@@ -495,8 +500,13 @@ else
     TARGET_CC=$CC
   fi
   AC_CHECK_TOOL(TARGET_OBJCOPY, objcopy)
+if test "$host_kernel" == solaris -o "$host_kernel" == illumos; then
+  AC_CHECK_TOOL(TARGET_STRIP, gstrip)
+  AC_CHECK_TOOL(TARGET_NM, gnm)
+else
   AC_CHECK_TOOL(TARGET_STRIP, strip)
   AC_CHECK_TOOL(TARGET_NM, nm)
+fi
   AC_CHECK_TOOL(TARGET_RANLIB, ranlib)
 fi
 
@@ -728,6 +738,10 @@ if test "x$grub_cv_cc_fno_asynchronous_unwind_tables" = xyes; then
   TARGET_CFLAGS="$TARGET_CFLAGS -fno-asynchronous-unwind-tables"
 fi
 
+grub_solaris_linker
+
+AM_CONDITIONAL([COND_ld_Solaris], [test x$grub_cv_solaris_linker = xyes])
+
 AC_ARG_ENABLE([efiemu],
 	      [AS_HELP_STRING([--enable-efiemu],
                              [build and install the efiemu runtimes (default=guessed)])])
@@ -757,7 +771,7 @@ fi
 if test x"$efiemu_excuse" = x ; then
   AC_CACHE_CHECK([for efiemu64 linking format], [grub_cv_target_cc_efiemu64_link_format], [
     grub_cv_target_cc_efiemu64_link_format=unknown
-    for format in -melf_x86_64 -melf_x86_64_fbsd -melf_x86_64_obsd -melf_x86_64_haiku -arch,x86_64 -m64; do
+    for format in -melf_x86_64 -melf_x86_64_fbsd -melf_x86_64_obsd -melf_x86_64_haiku -arch,x86_64 -64; do
       CFLAGS="-m64 -nostdlib -O2 -mcmodel=large -mno-red-zone"
       LDFLAGS="-m64 -Wl,$format -nostdlib -static"
       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
@@ -815,7 +829,7 @@ if test x"$platform" = xemu ; then
 elif test x"$target_cpu" = xi386 || test x"$target_cpu" = xx86_64; then
   AC_CACHE_CHECK([for target linking format], [grub_cv_target_cc_link_format], [
     grub_cv_target_cc_link_format=unknown
-    for format in -melf_${target_cpu} -melf_${target_cpu}_fbsd -melf_${target_cpu}_obsd -melf_${target_cpu}_haiku -mi386pe -mi386pep -arch,${target_cpu} -m32 -m64; do
+    for format in -melf_${target_cpu} -melf_${target_cpu}_fbsd -melf_${target_cpu}_obsd -melf_${target_cpu}_haiku -mi386pe -mi386pep -arch,${target_cpu} -32 -64; do
       if test x${target_cpu} != xi386 && test x$format = x-mi386pe; then
         continue
       fi
@@ -879,6 +893,14 @@ else
   TARGET_IMG_LDFLAGS_AC='-Wl,-N'
   TARGET_IMG_BASE_LDOPT="-Wl,-Ttext"
   TARGET_IMG_CFLAGS=
+fi
+if test x$grub_cv_solaris_linker = xyes ; then
+  TARGET_SOLARIS_LD=1
+  TARGET_IMG_LDSCRIPT=''
+  TARGET_CFLAGS="$TARGET_CFLAGS -fno-common"
+  TARGET_IMG_LDFLAGS='-Wl,-dn'
+  TARGET_IMG_LDFLAGS_AC="-Wl,-dn -Wl,-M${srcdir}/conf/${target_cpu}-${platform}-${host_os}-img-ld.sc"
+  TARGET_IMG_BASE_LDOPT=
 fi
 
 AC_SUBST(TARGET_LDFLAGS_OLDMAGIC)
@@ -1416,7 +1438,7 @@ fi
 
 if test x"$starfield_excuse" = x; then
    for ext in pcf pcf.gz bdf bdf.gz ttf ttf.gz; do
-     for dir in . /usr/src /usr/share/fonts/X11/misc /usr/share/fonts/truetype/ttf-dejavu /usr/share/fonts/dejavu /usr/share/fonts/truetype; do
+     for dir in . /usr/src /usr/share/fonts/X11/misc /usr/share/fonts/truetype/ttf-dejavu /usr/share/fonts/dejavu /usr/share/fonts/truetype /usr/share/fonts/TrueType/dejavu; do
         if test -f "$dir/DejaVuSans.$ext"; then
           DJVU_FONT_SOURCE="$dir/DejaVuSans.$ext"
           break 2
@@ -1438,7 +1460,7 @@ AC_SUBST([DJVU_FONT_SOURCE])
 FONT_SOURCE=
 
 for ext in pcf pcf.gz bdf bdf.gz ttf ttf.gz; do
-  for dir in . /usr/src /usr/share/fonts/X11/misc /usr/share/fonts/unifont /usr/share/fonts/uni /usr/share/fonts/truetype/unifont /usr/share/fonts/misc; do
+  for dir in . /usr/src /usr/share/fonts/X11/misc /usr/share/fonts/unifont /usr/share/fonts/uni /usr/share/fonts/truetype/unifont /usr/share/fonts/misc /usr/share/fonts/TrueType/unifont; do
     if test -f "$dir/unifont.$ext"; then
       md5="$(md5sum "$dir/unifont.$ext"|awk '{ print $1; }')"
       # PCF and BDF from version 6.3 isn't hanled properly by libfreetype.

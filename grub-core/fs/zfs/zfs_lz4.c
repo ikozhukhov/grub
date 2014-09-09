@@ -33,32 +33,88 @@
  */
 
 #include <grub/err.h>
+#include <grub/file.h>
 #include <grub/mm.h>
 #include <grub/misc.h>
+#include <grub/disk.h>
+#include <grub/dl.h>
 #include <grub/types.h>
 
-static int LZ4_uncompress_unknownOutputSize(const char *source, char *dest,
-					    int isize, int maxOutputSize);
+static grub_err_t LZ4_uncompress_unknownOutputSize(const grub_uint8_t *source,
+	 char *dest, grub_uint32_t isize, grub_size_t maxOutputSize);
+grub_err_t
+lz4_decompress (void *s_start, void *d_start, grub_size_t s_len,
+		grub_size_t d_len);
+
+grub_err_t
+lz4_decompress (void *s_start, void *d_start, grub_size_t s_len,
+		grub_size_t d_len)
+{
+	const grub_uint8_t *src = s_start;
+	grub_uint32_t bufsiz = (src[0] << 24) | (src[1] << 16) | (src[2] << 8) |
+	    src[3];
+
+	/* invalid compressed buffer size encoded at start */
+	if (bufsiz + 4 > s_len)
+		return grub_error (GRUB_ERR_BAD_FS, "lz4 decompression failed");
+
+	/*
+	 * Returns 0 on success (decompression function returned non-negative)
+	 * and non-zero on failure (decompression function returned negative).
+	 */
+	return LZ4_uncompress_unknownOutputSize(src + 4, d_start, bufsiz,
+	    d_len);
+}
 
 /*
  * CPU Feature Detection
  */
 
 /* 32 or 64 bits ? */
-#if (GRUB_CPU_SIZEOF_VOID_P == 8)
+#if (defined(__x86_64__) || defined(__x86_64) || defined(__amd64__) || \
+	defined(__amd64) || defined(__ppc64__) || defined(_WIN64) || \
+	defined(__LP64__) || defined(_LP64))
 #define	LZ4_ARCH64	1
 #else
 #define	LZ4_ARCH64	0
 #endif
 
 /*
+ * Little Endian or Big Endian?
+ * Note: overwrite the below #define if you know your architecture endianess.
+ */
+#if (defined(__BIG_ENDIAN__) || defined(__BIG_ENDIAN) || \
+	defined(_BIG_ENDIAN) || defined(_ARCH_PPC) || defined(__PPC__) || \
+	defined(__PPC) || defined(PPC) || defined(__powerpc__) || \
+	defined(__powerpc) || defined(powerpc) || \
+	((defined(__BYTE_ORDER__)&&(__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__))))
+#define	LZ4_BIG_ENDIAN	1
+#else
+	/*
+	 * Little Endian assumed. PDP Endian and other very rare endian format
+	 * are unsupported.
+	 */
+#endif
+
+/*
  * Compiler Options
  */
+#if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L	/* C99 */
+/* "restrict" is a known keyword */
+#else
+/* Disable restrict */
+#if !defined restrict
+#define	restrict
+#endif
+#endif
 
 
 #define	GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
 
-#if (GCC_VERSION >= 302) || (defined (__INTEL_COMPILER) && __INTEL_COMPILER >= 800) || defined(__clang__)
+#define	lz4_bswap16(x) ((unsigned short int) ((((x) >> 8) & 0xffu) \
+	| (((x) & 0xffu) << 8)))
+
+#if (GCC_VERSION >= 302) || (__INTEL_COMPILER >= 800) || defined(__clang__)
 #define	expect(expr, value)    (__builtin_expect((expr), (value)))
 #else
 #define	expect(expr, value)    (expr)
@@ -73,17 +129,16 @@ static int LZ4_uncompress_unknownOutputSize(const char *source, char *dest,
 #define	U32	grub_uint32_t
 #define	S32	grub_int32_t
 #define	U64	grub_uint64_t
-typedef grub_size_t size_t;
 
 typedef struct _U16_S {
 	U16 v;
-} GRUB_PACKED U16_S;
+} U16_S;
 typedef struct _U32_S {
 	U32 v;
-} GRUB_PACKED U32_S;
+} U32_S;
 typedef struct _U64_S {
 	U64 v;
-} GRUB_PACKED U64_S;
+} U64_S;
 
 #define	A64(x)	(((U64_S *)(x))->v)
 #define	A32(x)	(((U32_S *)(x))->v)
@@ -125,49 +180,35 @@ typedef struct _U64_S {
 #define	INITBASE(base)		const int base = 0
 #endif
 
-#define	LZ4_READ_LITTLEENDIAN_16(d, s, p) { d = (s) - grub_le_to_cpu16 (A16 (p)); }
-#define	LZ4_WRITE_LITTLEENDIAN_16(p, v)  { A16(p) = grub_cpu_to_le16 (v); p += 2; }
+#if (defined(LZ4_BIG_ENDIAN) && !defined(BIG_ENDIAN_NATIVE_BUT_INCOMPATIBLE))
+#define	LZ4_READ_LITTLEENDIAN_16(d, s, p) \
+	{ U16 v = A16(p); v = lz4_bswap16(v); d = (s) - v; }
+#define	LZ4_WRITE_LITTLEENDIAN_16(p, i) \
+	{ U16 v = (U16)(i); v = lz4_bswap16(v); A16(p) = v; p += 2; }
+#else
+#define	LZ4_READ_LITTLEENDIAN_16(d, s, p) { d = (s) - A16(p); }
+#define	LZ4_WRITE_LITTLEENDIAN_16(p, v)  { A16(p) = v; p += 2; }
+#endif
 
 /* Macros */
 #define	LZ4_WILDCOPY(s, d, e) do { LZ4_COPYPACKET(s, d) } while (d < e);
 
 /* Decompression functions */
-grub_err_t
-lz4_decompress(void *s_start, void *d_start, size_t s_len, size_t d_len);
 
-grub_err_t
-lz4_decompress(void *s_start, void *d_start, size_t s_len, size_t d_len)
-{
-	const BYTE *src = s_start;
-	U32 bufsiz = (src[0] << 24) | (src[1] << 16) | (src[2] << 8) |
-	    src[3];
-
-	/* invalid compressed buffer size encoded at start */
-	if (bufsiz + 4 > s_len)
-		return grub_error(GRUB_ERR_BAD_FS,"lz4 decompression failed.");
-
-	/*
-	 * Returns 0 on success (decompression function returned non-negative)
-	 * and appropriate error on failure (decompression function returned negative).
-	 */
-	return (LZ4_uncompress_unknownOutputSize((char*)s_start + 4, d_start, bufsiz,
-	    d_len) < 0)?grub_error(GRUB_ERR_BAD_FS,"lz4 decompression failed."):0;
-}
-
-static int
-LZ4_uncompress_unknownOutputSize(const char *source,
-    char *dest, int isize, int maxOutputSize)
+static grub_err_t
+LZ4_uncompress_unknownOutputSize(const grub_uint8_t *source,
+    char *dest, grub_uint32_t isize, grub_size_t maxOutputSize)
 {
 	/* Local Variables */
-	const BYTE * ip = (const BYTE *) source;
+	const BYTE *restrict ip = (const BYTE *) source;
 	const BYTE *const iend = ip + isize;
-	const BYTE * ref;
+	const BYTE *restrict ref;
 
-	BYTE * op = (BYTE *) dest;
+	BYTE *restrict op = (BYTE *) dest;
 	BYTE *const oend = op + maxOutputSize;
 	BYTE *cpy;
 
-	size_t dec[] = { 0, 3, 2, 3, 0, 0, 0, 0 };
+	grub_size_t dec[] = { 0, 3, 2, 3, 0, 0, 0, 0 };
 
 	/* Main Loop */
 	while (ip < iend) {
@@ -185,6 +226,10 @@ LZ4_uncompress_unknownOutputSize(const char *source,
 		}
 		/* copy literals */
 		cpy = op + length;
+		/* CORNER-CASE: cpy might overflow. */
+		if (cpy < op)		/* cpy was overflowed, bail! */
+			return grub_error (GRUB_ERR_BAD_FS,
+			    "lz4 decompression failed");
 		if ((cpy > oend - COPYLENGTH) ||
 		    (ip + length > iend - COPYLENGTH)) {
 			if (cpy > oend)
@@ -192,19 +237,19 @@ LZ4_uncompress_unknownOutputSize(const char *source,
 				 * Error: request to write beyond destination
 				 * buffer.
 				 */
-				goto _output_error;
+				return grub_error (GRUB_ERR_BAD_FS, "lz4 decompression failed");
 			if (ip + length > iend)
 				/*
 				 * Error : request to read beyond source
 				 * buffer.
 				 */
-				goto _output_error;
+				return grub_error (GRUB_ERR_BAD_FS, "lz4 decompression failed");
 			grub_memcpy(op, ip, length);
 			op += length;
 			ip += length;
 			if (ip < iend)
 				/* Error : LZ4 format violation */
-				goto _output_error;
+				return grub_error (GRUB_ERR_BAD_FS, "lz4 decompression failed");
 			/* Necessarily EOF, due to parsing restrictions. */
 			break;
 		}
@@ -220,7 +265,7 @@ LZ4_uncompress_unknownOutputSize(const char *source,
 			 * Error: offset creates reference outside of
 			 * destination buffer.
 			 */
-			goto _output_error;
+			return grub_error (GRUB_ERR_BAD_FS, "lz4 decompression failed");
 
 		/* get matchlength */
 		if ((length = (token & ML_MASK)) == ML_MASK) {
@@ -235,8 +280,8 @@ LZ4_uncompress_unknownOutputSize(const char *source,
 		/* copy repeated sequence */
 		if unlikely(op - ref < STEPSIZE) {
 #if LZ4_ARCH64
-			size_t dec2table[] = { 0, 0, 0, -1, 0, 1, 2, 3 };
-			size_t dec2 = dec2table[op - ref];
+			grub_size_t dec2table[] = { 0, 0, 0, -1, 0, 1, 2, 3 };
+			grub_size_t dec2 = dec2table[op - ref];
 #else
 			const int dec2 = 0;
 #endif
@@ -258,7 +303,7 @@ LZ4_uncompress_unknownOutputSize(const char *source,
 				 * Error: request to write outside of
 				 * destination buffer.
 				 */
-				goto _output_error;
+				return grub_error (GRUB_ERR_BAD_FS, "lz4 decompression failed");
 			LZ4_SECURECOPY(ref, op, (oend - COPYLENGTH));
 			while (op < cpy)
 				*op++ = *ref++;
@@ -276,9 +321,5 @@ LZ4_uncompress_unknownOutputSize(const char *source,
 	}
 
 	/* end of decoding */
-	return (int)(((char *)op) - dest);
-
-	/* write overflow error detected */
-	_output_error:
-	return (int)(-(((char *)ip) - source));
+	return GRUB_ERR_NONE;
 }

@@ -41,19 +41,41 @@ BUILD_CPPFLAGS += $(CPPFLAGS_DEFAULT)
 
 LDADD_KERNEL = $(TARGET_LIBGCC)
 
+if COND_ld_Solaris
+CFLAGS_KERNEL = $(CFLAGS_PLATFORM) -ffreestanding -fno-common
+LDFLAGS_KERNEL = $(LDFLAGS_PLATFORM) -nostdlib -static-libgcc $(LDFLAGS_BASE_ADDRESS_$(GRUB_KERNEL_MACHINE_LINK_ADDR))
+# GNU strip crashes when processing the static kernel.img on Solaris
+# (even binutils 2.10.1)
+# So, use Solaris's utilities
+MCS_KERNEL = /usr/ccs/bin/mcs -d -n .note -n .comment -n .note.gnu.build-id -n .reginfo -n .rel.dyn
+MCS_MODULE = /usr/ccs/bin/mcs -d -n .note -n .comment
+STRIPFLAGS_KERNEL = 
+STRIPFLAGS_PROGRAM=-x
+else
 CFLAGS_KERNEL = $(CFLAGS_PLATFORM) -ffreestanding
 LDFLAGS_KERNEL = $(LDFLAGS_PLATFORM) -nostdlib $(TARGET_LDFLAGS_OLDMAGIC) $(TARGET_LDFLAGS_STATIC_LIBGCC)
+STRIPFLAGS_KERNEL = -R .rel.dyn -R .reginfo -R .note -R .comment -R .drectve -R .note.gnu.gold-version
+endif
 CPPFLAGS_KERNEL = $(CPPFLAGS_CPU) $(CPPFLAGS_PLATFORM) -DGRUB_KERNEL=1
 CCASFLAGS_KERNEL = $(CCASFLAGS_CPU) $(CCASFLAGS_PLATFORM)
-STRIPFLAGS_KERNEL = -R .rel.dyn -R .reginfo -R .note -R .comment -R .drectve -R .note.gnu.gold-version
 
+if COND_ld_Solaris
+CFLAGS_MODULE = $(CFLAGS_PLATFORM) -ffreestanding -fno-common
+LDFLAGS_MODULE = $(LDFLAGS_PLATFORM) -nostdlib -Wl,-r
+else
 CFLAGS_MODULE = $(CFLAGS_PLATFORM) -ffreestanding
 LDFLAGS_MODULE = $(LDFLAGS_PLATFORM) -nostdlib $(TARGET_LDFLAGS_OLDMAGIC) -Wl,-r,-d
+endif
 CPPFLAGS_MODULE = $(CPPFLAGS_CPU) $(CPPFLAGS_PLATFORM)
 CCASFLAGS_MODULE = $(CCASFLAGS_CPU) $(CCASFLAGS_PLATFORM)
 
+if COND_ld_Solaris
+CFLAGS_IMAGE = $(CFLAGS_PLATFORM) -fno-builtin -fno-common
+LDFLAGS_IMAGE = $(LDFLAGS_PLATFORM) -nostdlib
+else
 CFLAGS_IMAGE = $(CFLAGS_PLATFORM) -fno-builtin
 LDFLAGS_IMAGE = $(LDFLAGS_PLATFORM) -nostdlib $(TARGET_LDFLAGS_OLDMAGIC) -Wl,-S
+endif
 CPPFLAGS_IMAGE = $(CPPFLAGS_CPU) $(CPPFLAGS_PLATFORM)
 CCASFLAGS_IMAGE = $(CCASFLAGS_CPU) $(CCASFLAGS_PLATFORM)
 
@@ -97,6 +119,33 @@ CPPFLAGS_MARKER = $(CPPFLAGS_FS_LIST) $(CPPFLAGS_VIDEO_LIST) \
 	$(CPPFLAGS_PARTTOOL_LIST) $(CPPFLAGS_PARTMAP_LIST) \
 	$(CPPFLAGS_TERMINAL_LIST) $(CPPFLAGS_COMMAND_LIST)
 
+if COND_ld_Solaris
+LDFLAGS_EMU = -Wl,-r
+LDFLAGS_X86_EFI = -Wl,-r
+LDFLAGS_PACKDATA = -Wl,-dn
+LDFLAGS_NES = -Wl,-M,$(top_srcdir)/conf/map.noexstk
+LDFLAGS_NED = -Wl,-M,$(top_srcdir)/conf/map.noexdata
+LDFLAGS_BASE_ADDRESS_0x0 = -Wl,-M,$(top_srcdir)/conf/mapfile-0.map
+LDFLAGS_BASE_ADDRESS_0x7C00 = -Wl,-M,$(top_srcdir)/conf/mapfile-7c00.map
+LDFLAGS_BASE_ADDRESS_0x8000 = -Wl,-M,$(top_srcdir)/conf/mapfile-8000.map
+LDFLAGS_BASE_ADDRESS_0x8200 = -Wl,-M,$(top_srcdir)/conf/mapfile-8200.map
+LDFLAGS_BASE_ADDRESS_0x6000 = -Wl,-M,$(top_srcdir)/conf/mapfile-6000.map
+LDFLAGS_BASE_ADDRESS_0x9000 = -Wl,-M,$(top_srcdir)/conf/mapfile-9000.map
+LDFLAGS_BASE_ADDRESS_0x100000 = -Wl,-M,$(top_srcdir)/conf/mapfile-100000.map
+else
+LDFLAGS_EMU = -Wl,-r,-d
+LDFLAGS_X86_EFI = -Wl,-r,-d
+LDFLAGS_PACKDATA = -Wl,-N
+LDFLAGS_NES =
+LDFLAGS_NED =
+LDFLAGS_BASE_ADDRESS_0x0 = $(TARGET_IMG_BASE_LDOPT),0
+LDFLAGS_BASE_ADDRESS_0x6000 = $(TARGET_IMG_BASE_LDOPT),0x6000
+LDFLAGS_BASE_ADDRESS_0x7C00 = $(TARGET_IMG_BASE_LDOPT),0x7c00
+LDFLAGS_BASE_ADDRESS_0x8000 = $(TARGET_IMG_BASE_LDOPT),0x8000
+LDFLAGS_BASE_ADDRESS_0x8200 = $(TARGET_IMG_BASE_LDOPT),0x8200
+LDFLAGS_BASE_ADDRESS_0x9000 = $(TARGET_IMG_BASE_LDOPT),0x9000
+LDFLAGS_BASE_ADDRESS_0x100000 = $(TARGET_IMG_BASE_LDOPT),0x100000
+endif
 # Define these variables to calm down automake
 
 IMG_FILES =

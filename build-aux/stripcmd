@@ -1,0 +1,13 @@
+#!/bin/sh -x
+
+# POST_PROCESS for Illumos build system.
+
+mcsprog="/usr/ccs/bin/mcs"
+stripprog="/usr/ccs/bin/strip"
+
+if [ -z "$RELEASE_BUILD" ]; then
+	$mcsprog -d -a "${RELEASE_CM}" $1
+	$stripprog -x $1
+else
+	$mcsprog -d -a "${RELEASE_CM}" -a "${DEV_CM}" $1
+fi

@@ -93,6 +93,21 @@ else
 fi
 grub_cv_prog_objcopy_absolute=yes
 for link_addr in 0x2000 0x8000 0x7C00; do
+  if test x$grub_cv_solaris_linker = xyes ; then
+
+cat > conftest.map <<EOF
+	text = P${link_addr} ;
+EOF
+    if AC_TRY_COMMAND([${CC-cc} ${CFLAGS} -nostdlib -Wl,-Mconftest.map conftest.o -o conftest.exec]); then :
+    else
+      AC_MSG_ERROR([${CC-cc} cannot link at address $link_addr])
+    fi
+    if AC_TRY_COMMAND([${OBJCOPY-objcopy} --only-section=.text -O binary conftest.exec conftest]); then :
+    else
+      AC_MSG_ERROR([${OBJCOPY-objcopy} cannot create binary files])
+    fi
+
+  else
   if AC_TRY_COMMAND([${CC-cc} ${CFLAGS} -nostdlib ${TARGET_IMG_LDFLAGS_AC} ${TARGET_IMG_BASE_LDOPT},$link_addr conftest.o -o conftest.exec]); then :
   else
     AC_MSG_ERROR([${CC-cc} cannot link at address $link_addr])
@@ -106,6 +121,7 @@ for link_addr in 0x2000 0x8000 0x7C00; do
   else
     grub_cv_prog_objcopy_absolute=no
     break
+  fi
   fi
 done
 rm -f conftest*])
@@ -283,6 +299,23 @@ DATA32=$grub_tmp_data32
 
 AC_MSG_RESULT([$grub_cv_i386_asm_prefix_requirement])])
 
+dnl check if our target linker is Solaris ld
+dnl because it requires mapfiles instead of GNU ld command-line args
+AC_DEFUN([grub_solaris_linker],
+[AC_REQUIRE([AC_PROG_CC])
+AC_MSG_CHECKING([whether our target linker is Solaris ld])
+AC_CACHE_VAL(grub_cv_solaris_linker,
+[cat > conftest.c <<\EOF
+int main(int argc, char **argv){return 0;}
+EOF
+if $CC conftest.c -o /dev/null -Wl,-V 2>&1 | grep "Solaris Link Editors" > /dev/null; then
+  grub_cv_solaris_linker=yes
+else
+  grub_cv_solaris_linker=no
+fi
+])
+
+AC_MSG_RESULT([$grub_cv_solaris_linker])])
 
 dnl Check what symbol is defined as a bss start symbol.
 dnl Written by Michael Hohmoth and Yoshinori K. Okuji.

@@ -77,8 +77,10 @@ typedef signed char		grub_int8_t;
 typedef short			grub_int16_t;
 typedef int			grub_int32_t;
 #if GRUB_CPU_SIZEOF_LONG == 8
+typedef int			wint_t;
 typedef long			grub_int64_t;
 #else
+typedef long			wint_t;
 typedef long long		grub_int64_t;
 #endif
 

@@ -1,6 +1,7 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
  *  Copyright (C) 1999,2000,2001,2002,2003,2004  Free Software Foundation, Inc.
+ *  Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
  *
  *  GRUB is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,10 +16,6 @@
  *  You should have received a copy of the GNU General Public License
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
-/*
- * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
- */
 
 #ifndef	_SYS_ZAP_IMPL_H
 #define	_SYS_ZAP_IMPL_H
@@ -28,6 +25,8 @@
 #define	ZAP_HASHBITS		28
 #define	MZAP_ENT_LEN		64
 #define	MZAP_NAME_LEN		(MZAP_ENT_LEN - 8 - 4 - 2)
+#define	MZAP_MAX_BLKSHIFT	SPA_128KBLOCKSHIFT
+#define	MZAP_MAX_BLKSZ		(1 << MZAP_MAX_BLKSHIFT)
 
 typedef struct mzap_ent_phys {
 	grub_uint64_t mze_value;

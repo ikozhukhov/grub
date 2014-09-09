@@ -103,7 +103,7 @@ grub_cmd_cat (grub_extcmd_context_t ctxt, int argc, char **args)
 	  if ((code >= 0xa1 || grub_isprint (code)
 	       || grub_isspace (code)) && code != '\r')
 	    {
-	      grub_printf ("%C", code);
+	      grub_printf ("%C", (wint_t)code);
 	      count = 0; 
 	      code = 0;
 	      utcount = 0;

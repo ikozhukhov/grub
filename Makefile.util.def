@@ -183,6 +183,7 @@ program = {
 
   extra_dist = util/grub-mkimagexx.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -200,6 +201,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -215,6 +217,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -230,6 +233,7 @@ program = {
   common = util/editenv.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -246,6 +250,7 @@ program = {
   common = grub-core/osdep/random.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -269,6 +274,7 @@ program = {
   common = grub-core/disk/host.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -285,6 +291,7 @@ program = {
   common = grub-core/disk/host.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -303,6 +310,7 @@ program = {
   cflags = '$(freetype_cflags)';
   cppflags = '-DGRUB_MKFONT=1';
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -322,6 +330,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -344,6 +353,7 @@ program = {
   extra_dist = grub-core/osdep/windows/blocklist.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubkern.a;
   ldadd = libgrubgcry.a;
@@ -364,6 +374,7 @@ program = {
   common = grub-core/osdep/blocklist.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubkern.a;
   ldadd = libgrubgcry.a;
@@ -380,6 +391,7 @@ program = {
   common = grub-core/osdep/ofpath.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -395,6 +407,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -410,6 +423,7 @@ program = {
   common = grub-core/osdep/init.c;
   common = grub-core/kern/emu/argp_common.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -488,12 +502,14 @@ script = {
   name = '30_os-prober';
   common = util/grub.d/30_os-prober.in;
   installdir = grubconf;
+  condition = !COND_HOST_ILLUMOS;
 };
 
 script = {
   name = '40_custom';
   common = util/grub.d/40_custom.in;
   installdir = grubconf;
+  condition = !COND_HOST_ILLUMOS;
 };
 
 script = {
@@ -534,6 +550,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = '$(LIBLZMA)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
@@ -579,6 +596,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = '$(LIBLZMA)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
@@ -617,6 +635,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = '$(LIBLZMA)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
@@ -651,6 +670,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = '$(LIBLZMA)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
@@ -1170,6 +1190,7 @@ program = {
   common = grub-core/kern/list.c;
   common = grub-core/kern/misc.c;
   common = grub-core/tests/lib/test.c;
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1185,6 +1206,7 @@ program = {
   common = grub-core/kern/list.c;
   common = grub-core/kern/misc.c;
   common = grub-core/tests/lib/test.c;
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1200,6 +1222,7 @@ program = {
   common = grub-core/kern/list.c;
   common = grub-core/kern/misc.c;
   common = grub-core/tests/lib/test.c;
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1216,6 +1239,7 @@ program = {
   common = grub-core/kern/misc.c;
   common = grub-core/tests/lib/test.c;
   common = grub-core/lib/priority_queue.c;
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1232,6 +1256,7 @@ program = {
   common = grub-core/kern/list.c;
   common = grub-core/kern/misc.c;
   common = grub-core/tests/lib/test.c;
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1247,6 +1272,7 @@ program = {
   common = grub-core/lib/i386/pc/vesa_modes_table.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1265,6 +1291,7 @@ program = {
   common = grub-core/disk/host.c;
   common = grub-core/kern/emu/argp_common.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1281,6 +1308,7 @@ program = {
   common = grub-core/kern/emu/argp_common.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1299,6 +1327,7 @@ program = {
   common = grub-core/disk/host.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
@@ -1328,6 +1357,7 @@ program = {
   common = grub-core/disk/host.c;
   common = grub-core/osdep/init.c;
 
+  ldflags = '$(LDFLAGS_NED) $(LDFLAGS_NES)';
   ldadd = libgrubmods.a;
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;

@@ -265,7 +265,8 @@ algo_decrypt (grub_crypto_cipher_handle_t cipher, grub_uint64_t algo,
 			       mac_out, nonce,
 			       15 - l, m);
     default:
-      return GPG_ERR_CIPHER_ALGO;
+      return grub_error(GPG_ERR_CIPHER_ALGO, "algorithm %"
+			PRIuGRUB_UINT64_T " is not supported yet", algo);
     }
 }
 

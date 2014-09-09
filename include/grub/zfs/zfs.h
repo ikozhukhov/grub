@@ -1,6 +1,7 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
  *  Copyright (C) 1999,2000,2001,2002,2003,2004,2009  Free Software Foundation, Inc.
+ *  Copyright (c) 2007, 2012, Oracle and/or its affiliates. All rights reserved.
  *
  *  GRUB is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,9 +16,6 @@
  *  You should have received a copy of the GNU General Public License
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
- /*
-  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
-  */
 
 #ifndef	GRUB_ZFS_HEADER
 #define	GRUB_ZFS_HEADER 1
@@ -38,10 +36,12 @@ typedef enum grub_zfs_endian
  */
 #define	SPA_VERSION_INITIAL		1ULL
 #define	SPA_VERSION_BEFORE_FEATURES	33ULL
+#define	SPA_VERSION_ORACLE		35ULL
+#define	SPA_VERSION			5000ULL
 #define	SPA_VERSION_FEATURES		5000ULL
 #define	SPA_VERSION_IS_SUPPORTED(v) \
-	(((v) >= SPA_VERSION_INITIAL && (v) <= SPA_VERSION_BEFORE_FEATURES) || \
-	((v) == SPA_VERSION_FEATURES))
+	(((v) >= SPA_VERSION_INITIAL && (v) <= SPA_VERSION_ORACLE) || \
+	((v) >= SPA_VERSION_FEATURES && (v) == SPA_VERSION))
 /*
  * The following are configuration names used in the nvlist describing a pool's
  * configuration.
@@ -124,14 +124,15 @@ struct grub_zfs_data;
 grub_err_t grub_zfs_fetch_nvlist (grub_device_t dev, char **nvlist);
 grub_err_t grub_zfs_getmdnobj (grub_device_t dev, const char *fsfilename,
 			       grub_uint64_t *mdnobj);
-
+grub_err_t grub_zfs_defaultbootfsobj (grub_device_t dev, grub_uint64_t *mdnobj);
+grub_err_t grub_zfs_defaultbootfsname (grub_device_t dev, char **bootfsname);
 char *grub_zfs_nvlist_lookup_string (const char *nvlist, const char *name);
 char *grub_zfs_nvlist_lookup_nvlist (const char *nvlist, const char *name);
 int grub_zfs_nvlist_lookup_uint64 (const char *nvlist, const char *name,
 				   grub_uint64_t *out);
 char *grub_zfs_nvlist_lookup_nvlist_array (const char *nvlist,
 					   const char *name,
-					   grub_size_t array_index);
+					   grub_size_t index);
 int grub_zfs_nvlist_lookup_nvlist_array_get_nelm (const char *nvlist,
 						  const char *name);
 grub_err_t

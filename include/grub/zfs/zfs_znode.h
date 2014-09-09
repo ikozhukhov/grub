@@ -1,6 +1,7 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
  *  Copyright (C) 1999,2000,2001,2002,2003,2004  Free Software Foundation, Inc.
+ *  Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
  *
  *  GRUB is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,10 +16,6 @@
  *  You should have received a copy of the GNU General Public License
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
-/*
- * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
- */
 
 #ifndef	_SYS_FS_ZFS_ZNODE_H
 #define	_SYS_FS_ZFS_ZNODE_H
@@ -30,7 +27,7 @@
 #define	ZPL_VERSION_STR		"VERSION"
 #define	ZFS_SA_ATTRS		"SA_ATTRS"
 
-#define	ZPL_VERSION		5ULL
+#define	ZPL_VERSION		6ULL
 
 #define	ZFS_DIRENT_OBJ(de) BF64_GET(de, 0, 48)
 
