@@ -899,7 +899,7 @@ if test x$grub_cv_solaris_linker = xyes ; then
   TARGET_IMG_LDSCRIPT=''
   TARGET_CFLAGS="$TARGET_CFLAGS -fno-common"
   TARGET_IMG_LDFLAGS='-Wl,-dn'
-  TARGET_IMG_LDFLAGS_AC="-Wl,-dn -Wl,-M${srcdir}/conf/${target_cpu}-${platform}-${host_os}-img-ld.sc"
+  TARGET_IMG_LDFLAGS_AC='-Wl,-dn'
   TARGET_IMG_BASE_LDOPT=
 fi
 

@@ -70,6 +70,8 @@ kernel = {
 
   i386_pc_ldflags          = '$(TARGET_IMG_LDFLAGS)';
   i386_pc_ldflags          = '$(LDFLAGS_BASE_ADDRESS_0x9000)';
+  i386_pc_ldflags          = '$(LDFLAGS_NED)';
+  i386_pc_ldflags          = '$(LDFLAGS_NES)';
   i386_qemu_ldflags        = '$(TARGET_IMG_LDFLAGS)';
   i386_qemu_ldflags        = '$(TARGET_IMG_BASE_LDOPT),0x8200';
   i386_coreboot_ldflags    = '$(TARGET_IMG_LDFLAGS)';
@@ -349,6 +351,7 @@ image = {
   sparc64_ieee1275 = boot/sparc64/ieee1275/boot.S;
 
   i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
+  i386_pc_ldflags = '$(LDFLAGS_NES)';
   i386_pc_ldflags = '$(LDFLAGS_BASE_ADDRESS_0x7C00)';
 
   i386_qemu_ldflags = '$(TARGET_IMG_LDFLAGS)';
@@ -372,6 +375,7 @@ image = {
   
   i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
   i386_pc_ldflags = '$(LDFLAGS_BASE_ADDRESS_0x7C00)';
+  i386_pc_ldflags = '$(LDFLAGS_NES)';
 
   objcopyflags = '-O binary';
   enable = i386_pc;
@@ -383,6 +387,7 @@ image = {
   i386_pc = boot/i386/pc/cdboot.S;
   i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
   i386_pc_ldflags = '$(LDFLAGS_BASE_ADDRESS_0x7C00)';
+  i386_pc_ldflags = '$(LDFLAGS_NES)';
 
   sparc64_ieee1275 = boot/sparc64/ieee1275/boot.S;
   sparc64_ieee1275_objcopyflags = '-O a.out-sunos-big';
@@ -401,6 +406,7 @@ image = {
 
   i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
   i386_pc_ldflags = '$(LDFLAGS_BASE_ADDRESS_0x7C00)';
+  i386_pc_ldflags = '$(LDFLAGS_NES)';
 
   objcopyflags = '-O binary';
   enable = i386_pc;
@@ -412,6 +418,7 @@ image = {
 
   i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
   i386_pc_ldflags = '$(LDFLAGS_BASE_ADDRESS_0x8000)';
+  i386_pc_ldflags = '$(LDFLAGS_NES)';
 
   sparc64_ieee1275 = boot/sparc64/ieee1275/diskboot.S;
   sparc64_ieee1275_ldflags = '-Wl,-Ttext=0x4200';
@@ -428,6 +435,7 @@ image = {
 
   i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
   i386_pc_ldflags = '$(LDFLAGS_BASE_ADDRESS_0x6000)';
+  i386_pc_ldflags = '$(LDFLAGS_NES)';
 
   objcopyflags = '-O binary';
   enable = i386_pc;
@@ -472,6 +480,7 @@ image = {
 
   objcopyflags = '-O binary';
   ldflags = '$(TARGET_IMG_LDFLAGS) $(LDFLAGS_BASE_ADDRESS_0x8200)';
+  ldflags = '$(LDFLAGS_NES)';
   enable = i386_pc;
 };
 

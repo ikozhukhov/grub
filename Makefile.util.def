@@ -189,7 +189,7 @@ program = {
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
   ldadd = '$(LIBLZMA)';
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
   cppflags = '-DGRUB_PKGLIBDIR=\"$(pkglibdir)\"';
 };
 
@@ -222,7 +222,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
 
 program = {
@@ -238,7 +238,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
 
 program = {
@@ -255,7 +255,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
 
 program = {
@@ -279,7 +279,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBUTIL) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBUTIL) $(LIBGEOM)';
 };
 
 program = {
@@ -316,7 +316,7 @@ program = {
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
   ldadd = '$(freetype_libs)';
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
   condition = COND_GRUB_MKFONT;
 };
 
@@ -396,7 +396,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBUTIL) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBUTIL) $(LIBGEOM)';
 };
 
 program = {
@@ -412,7 +412,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
 
 program = {
@@ -1277,7 +1277,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
 
 program = {
@@ -1296,7 +1296,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
 
 program = {
@@ -1313,7 +1313,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
 
 program = {
@@ -1332,7 +1332,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
 
 program = {
@@ -1362,5 +1362,5 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBGEOM)';
 };
