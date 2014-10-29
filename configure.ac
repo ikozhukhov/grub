@@ -414,6 +414,15 @@ AC_CHECK_HEADER([util.h], [
 ])
 AC_SUBST([LIBUTIL])
 
+# solaris based systems libdevinfo.
+AC_CHECK_HEADER([libdevinfo.h], [
+  AC_CHECK_LIB([devinfo], [di_init], [
+    LIBUTIL="-ldevinfo"
+    AC_DEFINE(HAVE_LIBDEVINFO, 1, [Define if di_init() in -ldevinfo can be used])
+  ])
+])
+AC_SUBST([LIBDEVINFO])
+
 AC_CACHE_CHECK([whether -Wtrampolines work], [grub_cv_host_cc_wtrampolines], [
   SAVED_CFLAGS="$CFLAGS"
   CFLAGS="$HOST_CFLAGS -Wtrampolines -Werror"

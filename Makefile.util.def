@@ -556,7 +556,7 @@ program = {
   ldadd = libgrubgcry.a;
   ldadd = libgrubkern.a;
   ldadd = grub-core/gnulib/libgnu.a;
-  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBUTIL) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM)';
+  ldadd = '$(LIBINTL) $(LIBDEVMAPPER) $(LIBUTIL) $(LIBZFS) $(LIBNVPAIR) $(LIBGEOM) $(LIBDEVINFO)';
 
   condition = COND_HAVE_EXEC;
 };
@@ -579,6 +579,7 @@ program = {
   common = grub-core/osdep/platform_unix.c;
   extra_dist = grub-core/osdep/linux/platform.c;
   extra_dist = grub-core/osdep/windows/platform.c;
+  extra_dist = grub-core/osdep/sun/platform.c;
   extra_dist = grub-core/osdep/basic/platform.c;
   extra_dist = grub-core/osdep/basic/no_platform.c;
   extra_dist = grub-core/osdep/unix/platform.c;
