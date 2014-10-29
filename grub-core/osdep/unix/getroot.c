@@ -403,6 +403,12 @@ grub_find_device (const char *dir, dev_t dev)
 	    continue;
 	} else
 #endif /* __linux__ */
+#ifdef __sun__
+	if (strcmp (dir, "dsk") == 0 || strcmp (dir, "/dev/dsk") == 0) {
+	  if (stat (ent->d_name, &st) < 0)
+	    continue;
+	} else
+#endif /* __sun__ */
 	/* Don't follow other symbolic links.  */
 	continue;
       }
