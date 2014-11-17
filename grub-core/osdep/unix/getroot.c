@@ -159,43 +159,17 @@ xgetcwd (void)
   return path;
 }
 
-char **
-grub_util_find_root_devices_from_poolname (char *poolname)
-{
-  char **devices = 0;
-  size_t ndevices = 0;
-  size_t devices_allocated = 0;
-
 #if defined(HAVE_LIBZFS) && defined(HAVE_LIBNVPAIR)
-  zpool_handle_t *zpool;
-  libzfs_handle_t *libzfs;
-  nvlist_t *config, *vdev_tree;
+static void
+grub_util_find_child_vdevs(nvlist_t *vdev_tree, char ***devices, size_t *ndevices, size_t *devices_allocated)
+{
   nvlist_t **children;
   unsigned int nvlist_count;
   unsigned int i;
   char *device = 0;
 
-  libzfs = grub_get_libzfs_handle ();
-  if (! libzfs)
-    return NULL;
-
-  zpool = zpool_open (libzfs, poolname);
-  config = zpool_get_config (zpool, NULL);
-
-  if (nvlist_lookup_nvlist (config, "vdev_tree", &vdev_tree) != 0)
-    error (1, errno, "nvlist_lookup_nvlist (\"vdev_tree\")");
-
-  if (nvlist_lookup_nvlist_array (vdev_tree, "children", &children, &nvlist_count) != 0)
-    error (1, errno, "nvlist_lookup_nvlist_array (\"children\")");
-  assert (nvlist_count > 0);
-
-  while (nvlist_lookup_nvlist_array (children[0], "children",
-				     &children, &nvlist_count) == 0)
-    assert (nvlist_count > 0);
-
-  for (i = 0; i < nvlist_count; i++)
-    {
-      if (nvlist_lookup_string (children[i], "path", &device) != 0)
+  if (nvlist_lookup_nvlist_array (vdev_tree, "children", &children, &nvlist_count) != 0){
+      if (nvlist_lookup_string (vdev_tree, "path", &device) != 0)
 	error (1, errno, "nvlist_lookup_string (\"path\")");
 
       struct stat st;
@@ -214,17 +188,50 @@ grub_util_find_root_devices_from_poolname (char *poolname)
 	  else
 #endif
 	    device = xstrdup (device);
-	  if (ndevices >= devices_allocated)
+	  if (*ndevices >= *devices_allocated)
 	    {
-	      devices_allocated = 2 * (devices_allocated + 8);
-	      devices = xrealloc (devices, sizeof (devices[0])
-				  * devices_allocated);
+	      *devices_allocated = 2 * (*devices_allocated + 8);
+	      *devices = xrealloc (*devices, sizeof ((*devices)[0])
+				  * *devices_allocated);
 	    }
-	  devices[ndevices++] = device;
+	  (*devices)[(*ndevices)++] = device;
 	}
 
       device = NULL;
-    }
+
+  } else {
+    for (i = 0; i < nvlist_count; i++)
+      {
+        grub_util_find_child_vdevs(children[i], devices, ndevices, devices_allocated);
+      }
+  }
+
+}
+#endif
+
+char **
+grub_util_find_root_devices_from_poolname (char *poolname)
+{
+  char **devices = 0;
+  size_t ndevices = 0;
+  size_t devices_allocated = 0;
+
+#if defined(HAVE_LIBZFS) && defined(HAVE_LIBNVPAIR)
+  zpool_handle_t *zpool;
+  libzfs_handle_t *libzfs;
+  nvlist_t *config, *vdev_tree;
+
+  libzfs = grub_get_libzfs_handle ();
+  if (! libzfs)
+    return NULL;
+
+  zpool = zpool_open (libzfs, poolname);
+  config = zpool_get_config (zpool, NULL);
+
+  if (nvlist_lookup_nvlist (config, "vdev_tree", &vdev_tree) != 0)
+    error (1, errno, "nvlist_lookup_nvlist (\"vdev_tree\")");
+
+  grub_util_find_child_vdevs(vdev_tree, &devices, &ndevices, &devices_allocated);
 
   zpool_close (zpool);
 #else
