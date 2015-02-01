@@ -67,7 +67,7 @@
 	BF64_SET(x, low, len, ((val) >> (shift)) - (bias))
 
 #define	SPA_MINBLOCKSHIFT	9
-#define	SPA_MAXBLOCKSHIFT	20
+#define	SPA_MAXBLOCKSHIFT	24
 #define	SPA_128KBLOCKSHIFT	17
 #define	SPA_MINBLOCKSIZE	(1ULL << SPA_MINBLOCKSHIFT)
 
