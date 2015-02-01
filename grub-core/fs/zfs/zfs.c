@@ -317,11 +317,6 @@ static const char *spa_feature_names[] = {
         NULL
 };
 
-static int check_feature (const char *name, grub_uint64_t val,
-	       struct grub_zfs_dir_ctx *ctx __attribute__((unused)));
-static grub_err_t
-check_mos_features(dnode_phys_t *mosmdn_phys,grub_zfs_endian_t endian,struct grub_zfs_data* data );
-
 static grub_err_t 
 zlib_decompress (void *s, void *d,
 		 grub_size_t slen, grub_size_t dlen)
