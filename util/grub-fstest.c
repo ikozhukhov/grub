@@ -137,6 +137,7 @@ read_file (char *pathname, int (*hook) (grub_off_t ofs, char *buf, int len, void
     {
       char *msg = grub_xasprintf (_("invalid skip value %lld"),
 				  (unsigned long long) skip);
+      grub_file_close (file);
       grub_util_error ("%s", msg);
       return;
     }
@@ -159,6 +160,7 @@ read_file (char *pathname, int (*hook) (grub_off_t ofs, char *buf, int len, void
 	  {
 	    char *msg = grub_xasprintf (_("read error at offset %llu: %s"),
 					(unsigned long long) ofs, grub_errmsg);
+	    grub_file_close (file);
 	    grub_util_error ("%s", msg);
 	    break;
 	  }
