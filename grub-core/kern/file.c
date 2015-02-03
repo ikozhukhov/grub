@@ -78,13 +78,13 @@ grub_file_open (const char *name)
   else
     file_name = name;
 
+  file = (grub_file_t) grub_zalloc (sizeof (*file));
+  if (! file)
+    goto fail;
+
   device = grub_device_open (device_name);
   grub_free (device_name);
   if (! device)
-    goto fail;
-
-  file = (grub_file_t) grub_zalloc (sizeof (*file));
-  if (! file)
     goto fail;
 
   file->device = device;
@@ -121,12 +121,10 @@ grub_file_open (const char *name)
   return file;
 
  fail:
-  if (device)
-    grub_device_close (device);
+  if (file)
+    grub_file_close (file);
 
   /* if (net) grub_net_close (net);  */
-
-  grub_free (file);
 
   grub_memcpy (grub_file_filters_enabled, grub_file_filters_all,
 	       sizeof (grub_file_filters_enabled));
@@ -182,7 +180,7 @@ grub_file_read (grub_file_t file, void *buf, grub_size_t len)
 grub_err_t
 grub_file_close (grub_file_t file)
 {
-  if (file->fs->close)
+  if (file->fs && file->fs->close)
     (file->fs->close) (file);
 
   if (file->device)
