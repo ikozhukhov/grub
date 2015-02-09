@@ -106,6 +106,25 @@ find_free_slot (void)
   return -1;
 }
 
+static char *
+make_device_name (const char *drive)
+{
+  char *ret, *ptr;
+  const char *iptr;
+
+  ret = xmalloc (strlen (drive) * 2);
+  ptr = ret;
+  for (iptr = drive; *iptr; iptr++)
+    {
+      if (*iptr == ',' || *iptr == '\\')
+        *ptr++ = '\\';
+      *ptr++ = *iptr;
+    }
+  *ptr = 0;
+
+  return ret;
+}
+
 static int
 grub_util_biosdisk_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
 			    grub_disk_pull_t pull)
@@ -116,7 +135,7 @@ grub_util_biosdisk_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
     return 0;
 
   for (i = 0; i < ARRAY_SIZE (map); i++)
-    if (map[i].drive && hook (map[i].drive, hook_data))
+    if (map[i].drive && hook (make_device_name(map[i].drive), hook_data))
       return 1;
 
   return 0;
