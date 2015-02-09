@@ -257,6 +257,42 @@ struct grub_zfs_data
   char *dev_name;
 };
 
+/*
+ * The following are taken straight from usr/src/uts/common/fs/zfs/vdev_raidz.c
+ * If they change there, they need to be changed here.
+ *
+ * a map of columns returned for a given offset and size
+ */
+typedef struct raidz_col
+{
+  grub_uint64_t rc_devidx;	/* child device index for I/O */
+  grub_uint64_t rc_offset;	/* device offset */
+  grub_uint64_t rc_size;	/* I/O size */
+  void *rc_data;		/* I/O data */
+  void *rc_gdata;		/* used to store the "good" version */
+  int rc_error;			/* I/O error for this device */
+  grub_uint8_t rc_tried;	/* Did we attempt this I/O column? */
+  grub_uint8_t rc_skipped;	/* Did we skip this I/O column? */
+} raidz_col_t;
+
+typedef struct raidz_map
+{
+  grub_uint64_t rm_cols;		/* Regular column count */
+  grub_uint64_t rm_scols;		/* Count including skipped columns */
+  grub_uint64_t rm_bigcols;		/* Number of oversized columns */
+  grub_uint64_t rm_asize;		/* Actual total I/O size */
+  grub_uint64_t rm_missingdata;		/* Count of missing data devices */
+  grub_uint64_t rm_missingparity;	/* Count of missing parity devices */
+  grub_uint64_t rm_firstdatacol;	/* First data column/parity count */
+  grub_uint64_t rm_nskip;		/* Skipped sectors for padding */
+  grub_uint64_t rm_skipstart;		/* Column index of padding start */
+  void *rm_datacopy;			/* rm_asize-buffer of copied data */
+  grub_addr_t rm_reports;		/* # of referencing checksum reports */
+  grub_uint8_t rm_freed;		/* map no longer has referencing ZIO */
+  grub_uint8_t rm_ecksuminjected;	/* checksum error was injected */
+  raidz_col_t rm_col[1];		/* Flexible array of I/O columns */
+} raidz_map_t;
+
 /* cache list for ZFS mount */
 struct zfs_mount_cache
 {
@@ -385,6 +421,7 @@ static grub_err_t zio_read_common (blkptr_t * bp, dva_t *dva,
 				 struct grub_zfs_data *data);
 static const char * nvlist_next_nvpair (const char *nvl, const char *nvpair);
 static char *nvpair_name (const char *nvp);
+static grub_err_t scan_devices (struct grub_zfs_data *data, grub_uint64_t id);
 
 /*
  * Our own version of log2().  Same thing as highbit()-1.
@@ -604,9 +641,10 @@ get_psize (blkptr_t * bp, grub_zfs_endian_t endian)
 static grub_uint64_t
 dva_get_offset (const dva_t *dva, grub_zfs_endian_t endian)
 {
-  grub_dprintf ("zfs", "dva=%llx, %llx\n", 
+  grub_dprintf ("zfs", "dva=%llx, %llx asize=%llx\n", 
 		(unsigned long long) dva->dva_word[0], 
-		(unsigned long long) dva->dva_word[1]);
+		(unsigned long long) dva->dva_word[1],
+		(unsigned long long) DVA_GET_ASIZE(dva));
   return grub_zfs_to_cpu64 ((dva)->dva_word[1], 
 			    endian) << SPA_MINBLOCKSHIFT;
 }
@@ -785,9 +823,10 @@ fill_vdev_info_real (struct grub_zfs_data *data,
               return grub_errno;
             }
 
-	  err = fill_vdev_info_real (data, child, &fill->children[i], insert,
-				     inserted);
-	  grub_dprintf("zfs", "Child %d: fill returned %d\n", i, err);
+	    err = fill_vdev_info_real (data, child, &fill->children[i],
+				       insert, inserted);
+	    grub_dprintf("zfs", "Child %d: fill returned %d inserted: %d\n",
+			 i, err, *inserted);
 
 	  grub_free (child);
 
@@ -798,7 +837,32 @@ fill_vdev_info_real (struct grub_zfs_data *data,
 	    }
 	  if (fill->children[i].ashift > fill->max_children_ashift)
 	    fill->max_children_ashift = fill->children[i].ashift;
+	}
+      if (*inserted == 0)
+	{
+	  grub_free (type);
+	  return GRUB_ERR_NONE;
+	}
 
+      for (i = 0; i < nelm; i++)
+	{
+	  char *child;
+
+	  child = grub_zfs_nvlist_lookup_nvlist_array
+	    (nvlist, ZPOOL_CONFIG_CHILDREN, i);
+          if (! child)
+            {
+              grub_free(type);
+              return grub_errno;
+            }
+	  if (fill->children[i].dev == NULL)
+	    {
+	      grub_uint64_t cid;
+	      if (grub_zfs_nvlist_lookup_uint64 (nvlist, "id", &cid))
+	        scan_devices(data, cid);
+	    }
+
+	  grub_free (child);
 	}
       grub_free (type);
       return GRUB_ERR_NONE;
@@ -1095,7 +1159,8 @@ vdev_is_pool_member(struct grub_zfs_data *data, grub_uint64_t *vdev_guid)
     {
 grub_dprintf("zfs", "vdev_is_pool_member: type = %s\n",
  (data->devices_attached[i].type == DEVICE_LEAF) ? "leaf" :
-  ((data->devices_attached[i].type == DEVICE_MIRROR) ? "mirror" : "unknown"));
+  ((data->devices_attached[i].type == DEVICE_MIRROR) ? "mirror" :
+  ((data->devices_attached[i].type == DEVICE_RAIDZ) ? "raidz" : "unknown")));
 
       if (data->devices_attached[i].type == DEVICE_LEAF)
         {
@@ -1106,7 +1171,8 @@ i,
           ret = (*vdev_guid == data->devices_attached[i].guid);
           break;
         }
-      else if (data->devices_attached[i].type == DEVICE_MIRROR)
+      else if (data->devices_attached[i].type == DEVICE_MIRROR ||
+	       data->devices_attached[i].type == DEVICE_RAIDZ)
         {
           for (j = 0; j < data->devices_attached[i].n_children; j++)
             {
@@ -1518,6 +1584,7 @@ check_label:
 
 struct scan_devices_ctx {
 	struct grub_zfs_data *data;
+	grub_uint64_t id;
 	grub_device_t dev_found;
 };
 
@@ -1563,6 +1630,7 @@ scan_devices (struct grub_zfs_data *data, grub_uint64_t id)
 	struct scan_devices_ctx ctx;
 
 	ctx.data = data;
+	ctx.id = id;
 	ctx.dev_found = NULL;
 
 	grub_device_iterate (scan_devices_iter, (void *) &ctx);
@@ -1748,6 +1816,138 @@ recovery (grub_uint8_t *bufs[4], grub_size_t s, const int nbufs,
     }      
 }
 
+/*
+ *  vdev_raidz_map_get() is hacked from vdev_raidz_map_alloc() in
+ *  usr/src/uts/common/fs/zfs/vdev_raidz.c.  If that routine changes,
+ *  this might also need changing.
+ */
+
+#ifndef MIN
+#define	MIN(a, b)	((a) < (b) ? (a) : (b))
+#endif
+#ifndef roundup
+#define	roundup(x, y)	(grub_divmod64 ( (x)+((y)-1), (y), NULL) *(y))
+#endif
+#ifndef offsetof
+#define	offsetof(s, m)	((grub_size_t)(&(((s *)0)->m)))
+#endif
+
+static raidz_map_t *
+vdev_raidz_map_get(grub_uint64_t size, grub_uint64_t offset,
+		   grub_uint64_t unit_shift, grub_uint64_t dcols,
+		   grub_uint64_t nparity)
+{
+  raidz_map_t *rm;
+  grub_uint64_t b = offset >> unit_shift;
+  grub_uint64_t s = size >> unit_shift;
+  grub_uint64_t f, o, q, r, c, bc, col, acols, scols, coff, devidx, asize, tot;
+
+  o = grub_divmod64(b, dcols, NULL) << unit_shift;
+  (void) grub_divmod64(b, dcols, &f);
+  q = grub_divmod64(s, dcols - nparity, NULL);
+  r = s - q * (dcols - nparity);
+  bc = (r == 0 ? 0 : r + nparity);
+  tot = s + nparity * (q + (r == 0 ? 0 : 1));
+
+  if (q == 0)
+    {
+      acols = bc;
+      scols = MIN(dcols, roundup(bc, nparity + 1));
+    }
+  else
+    {
+      acols = dcols;
+      scols = dcols;
+    }
+
+  rm = grub_malloc(offsetof(raidz_map_t, rm_col[scols]));
+
+  if (rm == NULL)
+    {
+      return NULL;
+    }
+
+  rm->rm_cols = acols;
+  rm->rm_scols = scols;
+  rm->rm_bigcols = bc;
+  rm->rm_skipstart = bc;
+  rm->rm_missingdata = 0;
+  rm->rm_missingparity = 0;
+  rm->rm_firstdatacol = nparity;
+  rm->rm_datacopy = NULL;
+  rm->rm_reports = 0;
+  rm->rm_freed = 0;
+  rm->rm_ecksuminjected = 0;
+
+  asize = 0;
+
+  for (c = 0; c < scols; c++)
+    {
+      col = f + c;
+      coff = o;
+      if (col >= dcols)
+	{
+	  col -= dcols;
+	  coff += 1ULL << unit_shift;
+	}
+      rm->rm_col[c].rc_devidx = col;
+      rm->rm_col[c].rc_offset = coff;
+      rm->rm_col[c].rc_data = NULL;
+      rm->rm_col[c].rc_gdata = NULL;
+      rm->rm_col[c].rc_error = 0;
+      rm->rm_col[c].rc_tried = 0;
+      rm->rm_col[c].rc_skipped = 0;
+
+      if (c >= acols)
+	rm->rm_col[c].rc_size = 0;
+      else if (c < bc)
+	rm->rm_col[c].rc_size = (q + 1) << unit_shift;
+      else
+	rm->rm_col[c].rc_size = q << unit_shift;
+
+      asize += rm->rm_col[c].rc_size;
+    }
+
+  rm->rm_asize = roundup(asize, (nparity + 1) << unit_shift);
+  rm->rm_nskip = roundup(tot, nparity + 1) - tot;
+
+  /*
+   * If all data stored spans all columns, there's a danger that parity
+   * will always be on the same device and, since parity isn't read
+   * during normal operation, that that device's I/O bandwidth won't be
+   * used effectively. We therefore switch the parity every 1MB.
+   *
+   * ... at least that was, ostensibly, the theory. As a practical
+   * matter unless we juggle the parity between all devices evenly, we
+   * won't see any benefit. Further, occasional writes that aren't a
+   * multiple of the LCM of the number of children and the minimum
+   * stripe width are sufficient to avoid pessimal behavior.
+   * Unfortunately, this decision created an implicit on-disk format
+   * requirement that we need to support for all eternity, but only
+   * for single-parity RAID-Z.
+   *
+   * If we intend to skip a sector in the zeroth column for padding
+   * we must make sure to note this swap. We will never intend to
+   * skip the first column since at least one data and one parity
+   * column must appear in each row.
+   */
+
+  if (rm->rm_firstdatacol == 1 && (offset & (1ULL << 20)))
+    {
+       devidx = rm->rm_col[0].rc_devidx;
+       o = rm->rm_col[0].rc_offset;
+       rm->rm_col[0].rc_devidx = rm->rm_col[1].rc_devidx;
+       rm->rm_col[0].rc_offset = rm->rm_col[1].rc_offset;
+       rm->rm_col[1].rc_devidx = devidx;
+       rm->rm_col[1].rc_offset = o;
+
+       if (rm->rm_skipstart == 0)
+	 rm->rm_skipstart = 1;
+    }
+
+  return (rm);
+}
+
 static grub_err_t
 read_device (grub_uint64_t offset, struct grub_zfs_device_desc *desc,
 	     grub_size_t len, void *buf)
@@ -1758,6 +1958,9 @@ read_device (grub_uint64_t offset, struct grub_zfs_device_desc *desc,
       {
 	grub_uint64_t sector;
 	sector = DVA_OFFSET_TO_PHYS_SECTOR (offset);
+	grub_dprintf("zfs", "read_device: offset %llx sector %llx\n",
+		   (unsigned long long) offset,
+		   (unsigned long long) sector);
 	if (!desc->dev)
 	  {
 	    return grub_error (GRUB_ERR_BAD_FS,
@@ -1790,6 +1993,49 @@ read_device (grub_uint64_t offset, struct grub_zfs_device_desc *desc,
       }
     case DEVICE_RAIDZ:
       {
+	raidz_map_t *rzm;
+	raidz_col_t *cols;
+	unsigned i;
+	grub_err_t err;
+
+	if (desc->nparity < 1 || desc->nparity > 3)
+	  return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET, 
+			     "raidz%d is not supported", desc->nparity);
+
+	if (desc->n_children <= desc->nparity || desc->n_children < 1)
+	  return grub_error(GRUB_ERR_BAD_FS,
+			    "too little devices for given parity");
+
+	rzm = vdev_raidz_map_get(len, offset, desc->ashift, desc->n_children,
+				 desc->nparity);
+	if (rzm == NULL)
+	  return grub_errno;
+
+	grub_dprintf("zfs", "read_device: cols = %" PRIuGRUB_UINT64_T
+		     ", firstdatacol = %" PRIuGRUB_UINT64_T "\n",
+		     rzm->rm_cols, rzm->rm_firstdatacol);
+
+	for (i = 0, cols = &rzm->rm_col[0]; i < rzm->rm_cols; i++, cols++)
+	  {
+	    grub_dprintf("zfs", "%" PRIuGRUB_UINT64_T ":%" PRIxGRUB_UINT64_T
+			 ":%" PRIxGRUB_UINT64_T "\n", cols->rc_devidx,
+			 cols->rc_offset, cols->rc_size);
+	    if (i == 0) /* skip parity for now */
+	      continue;
+
+	    err = read_device (cols->rc_offset,
+			       &desc->children[cols->rc_devidx],
+			       cols->rc_size, buf);
+	    if (err)
+	      return err;
+
+	    buf = (char *) buf + cols->rc_size;
+	    len -= cols->rc_size;
+	  }
+	grub_free(rzm);
+	grub_dprintf("zfs", "read_device: len = %" PRIdGRUB_SSIZE "\n", len);
+
+#if 0
 	unsigned c = 0;
 	grub_uint64_t high;
 	grub_uint64_t devn;
@@ -1802,13 +2048,6 @@ read_device (grub_uint64_t offset, struct grub_zfs_device_desc *desc,
 	unsigned recovery_idx[4];
 	unsigned failed_devices = 0;
 	int idx, orig_idx;
-
-	if (desc->nparity < 1 || desc->nparity > 3)
-	  return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET, 
-			     "raidz%d is not supported", desc->nparity);
-
-	if (desc->n_children <= desc->nparity || desc->n_children < 1)
-	  return grub_error(GRUB_ERR_BAD_FS, "too little devices for given parity");
 
 	orig_s = (((len + (1 << desc->ashift) - 1) >> desc->ashift)
 		  + (desc->n_children - desc->nparity) - 1);
@@ -1830,7 +2069,6 @@ read_device (grub_uint64_t offset, struct grub_zfs_device_desc *desc,
 	  {
 	    grub_size_t csize;
 	    grub_uint32_t bsize;
-	    grub_err_t err;
 	    bsize = s / (desc->n_children - desc->nparity);
 
 	    if (desc->nparity == 1
@@ -1850,6 +2088,7 @@ read_device (grub_uint64_t offset, struct grub_zfs_device_desc *desc,
 			  PRIxGRUB_UINT64_T ")\n",
 			  offset >> desc->ashift, c, len, bsize, high,
 			  devn);
+
 	    err = read_device ((high << desc->ashift)
 			       | (offset & ((1 << desc->ashift) - 1)),
 			       &desc->children[devn],
@@ -1973,6 +2212,7 @@ read_device (grub_uint64_t offset, struct grub_zfs_device_desc *desc,
 	    if (err)
 	      return err;
 	  }
+#endif
 	return GRUB_ERR_NONE;
       }
     }
@@ -1989,6 +2229,7 @@ read_dva (const dva_t *dva,
   grub_err_t err = 0;
   int try = 0;
   offset = dva_get_offset (dva, endian);
+  offset = DVA_GET_OFFSET (dva);
 
   for (try = 0; try < 2; try++)
     {
@@ -2129,7 +2370,7 @@ zio_read_data (blkptr_t * bp, grub_zfs_endian_t endian, void *buf,
   grub_uint32_t checksum;
 
   psize = get_psize (bp, endian);
-  checksum = (grub_zfs_to_cpu64((bp)->blk_prop, endian) >> 40) & 0xff;
+  checksum = BP_GET_CHECKSUM(bp, endian);
 
   /* pick a good dva from the block pointer */
   for (i = 0; i < BP_GET_NDVAS(bp); i++)
@@ -4445,7 +4686,7 @@ zfs_mount (grub_device_t dev)
  
   diskname = (char *)dev->disk->name;
   partname = grub_partition_get_name(dev->disk->partition);
-  if (partname)
+  if (partname[0] != 0)
     {
       fullname = grub_xasprintf("%s,%s", diskname, partname);
       grub_free (partname);
