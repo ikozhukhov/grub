@@ -135,6 +135,7 @@ char *grub_zfs_nvlist_lookup_nvlist_array (const char *nvlist,
 					   grub_size_t index);
 int grub_zfs_nvlist_lookup_nvlist_array_get_nelm (const char *nvlist,
 						  const char *name);
+int grub_zfs_vdev_validate (const char *nv);
 grub_err_t
 grub_zfs_add_key (grub_uint8_t *key_in,
 		  grub_size_t keylen,

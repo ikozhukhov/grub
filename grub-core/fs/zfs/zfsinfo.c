@@ -216,21 +216,26 @@ get_bootpath (char *nvlist, grub_uint64_t devguid, char **bootpath,
       found = grub_zfs_nvlist_lookup_uint64 (nvlist, ZPOOL_CONFIG_GUID,
 					     &curguid);
 
+      *bootpath = 0;
+      *devid = 0;
+
       if (found && curguid != devguid)
 	{
-	  *bootpath = 0;
-	  *devid = 0;
 	  return GRUB_ERR_NONE;
 	}
 
-	*bootpath = grub_zfs_nvlist_lookup_string (nvlist,
-						  ZPOOL_CONFIG_PHYS_PATH);
-	*devid = grub_zfs_nvlist_lookup_string (nvlist, ZPOOL_CONFIG_DEVID);
-
+      if (grub_zfs_vdev_validate(nvlist))	/* device error */
 	return GRUB_ERR_NONE;
+
+      *bootpath = grub_zfs_nvlist_lookup_string (nvlist,
+						 ZPOOL_CONFIG_PHYS_PATH);
+      *devid = grub_zfs_nvlist_lookup_string (nvlist, ZPOOL_CONFIG_DEVID);
+
+      return GRUB_ERR_NONE;
     }
 
-  if (grub_strcmp (type, VDEV_TYPE_MIRROR) == 0)
+  if (grub_strcmp (type, VDEV_TYPE_MIRROR) == 0 ||
+      grub_strcmp (type, VDEV_TYPE_RAIDZ) == 0)
     {
       int nelm, i;
 

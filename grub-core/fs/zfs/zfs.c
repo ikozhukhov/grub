@@ -678,8 +678,8 @@ zfs_fetch_nvlist (struct grub_zfs_device_desc *diskdesc, char **nvlist)
 /*
  * Check if this vdev is online and is in a good state.
  */
-static int
-vdev_validate (const char *nv)
+int
+grub_zfs_vdev_validate (const char *nv)
 {
   grub_uint64_t ival = 0;
 
@@ -758,7 +758,7 @@ fill_vdev_info_real (struct grub_zfs_data *data,
       if (fill->guid == insert->guid && !data->device_original)
         data->device_original = fill;
 
-      if (vdev_validate(nvlist))
+      if (grub_zfs_vdev_validate(nvlist))
         fill->dev_state = DEVICE_ERROR;
       else
         fill->dev_state = DEVICE_OK;
