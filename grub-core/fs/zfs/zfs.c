@@ -2229,7 +2229,6 @@ read_dva (const dva_t *dva,
   grub_err_t err = 0;
   int try = 0;
   offset = dva_get_offset (dva, endian);
-  offset = DVA_GET_OFFSET (dva);
 
   for (try = 0; try < 2; try++)
     {
