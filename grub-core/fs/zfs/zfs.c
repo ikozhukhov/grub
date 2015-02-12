@@ -667,7 +667,6 @@ zfs_fetch_nvlist (struct grub_zfs_device_desc *diskdesc, char **nvlist)
   if (err)
     {
       grub_dprintf("zfs", "grub_disk_read failed with err = %d\n", err);
-      grub_print_error();
       grub_free (*nvlist);
       *nvlist = 0;
       return err;
