@@ -81,6 +81,21 @@ grub_util_guess_bios_drive (const char *orig_path)
     ptr++;
   else
     ptr = canon;
+
+  /*
+   * solaris originated systems have disk name in form
+   * driver@target,lun:slice, driver is sd for scsi/sata/sas,cd and cmdk
+   * for ide disks. so we just skip to target and convert it to int.
+   * such guessing will not work ok if lun is not 0, if thats the case,
+   * admin needs to create proper /boot/grub/device.map
+   */
+  if (strchr(ptr, '@'))
+    {
+      ptr = strchr(ptr, '@');
+      ptr++;
+      free (canon);
+      return xasprintf ("hd%d", (int)strtol(ptr, NULL, 10));
+    }
   if ((ptr[0] == 's' || ptr[0] == 'h') && ptr[1] == 'd')
     {
       int num = ptr[2] - 'a';
@@ -110,6 +125,21 @@ grub_util_guess_efi_drive (const char *orig_path)
     ptr++;
   else
     ptr = canon;
+
+  /*
+   * solaris originated systems have disk name in form
+   * driver@target,lun:slice, driver is sd for scsi/sata/sas,cd and cmdk
+   * for ide disks. so we just skip to target and convert it to int.
+   * such guessing will not work ok if lun is not 0, if thats the case,
+   * admin needs to create proper /boot/grub/device.map
+   */
+  if (strchr(ptr, '@'))
+    {
+      ptr = strchr(ptr, '@');
+      ptr++;
+      free (canon);
+      return xasprintf ("hd%d", (int)strtol(ptr, NULL, 10));
+    }
   if ((ptr[0] == 's' || ptr[0] == 'h') && ptr[1] == 'd')
     {
       int num = ptr[2] - 'a';
@@ -139,6 +169,21 @@ grub_util_guess_baremetal_drive (const char *orig_path)
     ptr++;
   else
     ptr = canon;
+
+  /*
+   * solaris originated systems have disk name in form
+   * driver@target,lun:slice, driver is sd for scsi/sata/sas,cd and cmdk
+   * for ide disks. so we just skip to target and convert it to int.
+   * such guessing will not work ok if lun is not 0, if thats the case,
+   * admin needs to create proper /boot/grub/device.map
+   */
+  if (strchr(ptr, '@'))
+    {
+      ptr = strchr(ptr, '@');
+      ptr++;
+      free (canon);
+      return xasprintf ("hd%d", (int)strtol(ptr, NULL, 10));
+    }
   if (ptr[0] == 'h' && ptr[1] == 'd')
     {
       int num = ptr[2] - 'a';
